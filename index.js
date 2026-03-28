@@ -8,7 +8,7 @@ const stationName = "Вільногірськ";
 const busesData = [
   {
     id: "b1",
-    route: "Міський автобус 007",
+    route: "Міський автобус",
     directions: [
       {
         title: "Від МЦЛ (нова лікарня)",
