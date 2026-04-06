@@ -1,93 +1,103 @@
 const express = require("express");
-const cors = require("cors");
+const fs = require("fs");
+const yaml = require("js-yaml");
+
 const app = express();
 
-app.use(cors());
-const stationName = "Вільногірськ";
-
-const busesData = [
-  {
-    id: "b1",
-    route: "Міський автобус",
-    directions: [
-      {
-        title: "Від МЦЛ (нова лікарня)",
-        rows: [
-          ["Щоденно*", "06:00"], ["до маг. Ольга**", "07:30"], ["Щоденно*", "08:30"], 
-          ["Щоденно*", "10:10"], ["до маг. Ольга**", "12:10"], ["до маг. Ольга**", "14:10"], 
-          ["Крім вихідних*", "15:20"], ["Крім вихідних*", "16:40"]
-        ]
-      },
-      {
-        title: "Від залізничного вокзалу",
-        rows: [
-          ["Щоденно*", "07:00"], ["від маг. Ольга**", "07:40"], ["Щоденно*", "09:05"], 
-          ["Щоденно*", "11:00"], ["від маг. Ольга**", "14:00"], ["від маг. Ольга**", "15:00"], 
-          ["Крім вихідних*", "16:10"]
-        ]
-      }
-    ],
-    note: "*Згідно зміни розкладу електропоїздів. Час відправлення можна уточнювати у водія<br>**Крім вихідних."
-  },
-  {
-    id: "b2",
-    route: "До Дніпра (ч/з Божедарівку)",
-    directions: [
-      { title: "З Вільногірська", rows: [["Рейс 1", "06:00"], ["Рейс 2", "10:00"], ["Рейс 3", "13:00"]] },
-      { title: "З Дніпра (АС1)", rows: [["Рейс 1", "07:00"], ["Рейс 2", "10:00"], ["Рейс 3", "13:00"]] }
-    ],
-    note: ""
-  },
-  {
-    id: "b3",
-    route: "До Дніпра (ч/з Кам'янське)",
-    directions: [
-      { title: "З Вільногірська", rows: [["Рейс 1", "05:10"], ["Рейс 2", "14:10"]] },
-      { title: "З Дніпра (АС1)", rows: [["Рейс 1", "08:10"], ["Рейс 2", "17:10"]] }
-    ],
-    note: "* Йдуть повз зализничий вокзал Кам'янське-Пас."
-  },
-  {
-    id: "b4",
-    route: "Кривий Ріг ⇄ В-Дніпровськ",
-    directions: [
-      { title: "До Кривого Рігу", rows: [["З Вільногірська", "06:25"]] },
-      { title: "До В-Дніпровську", rows: [["З Вільногірська", "16:20"]] }
-    ],
-    note: "*Крім вихідних"
-  },
-  {
-    id: "b5",
-    route: "Вільногірськ ⇄ Лихівка",
-    directions: [
-      { title: "З Вільногірська", rows: [["Рейс 1", "10:30"], ["Рейс 2", "14:45"]] },
-      { title: "З Лихівки", rows: [["Рейс 1", "11:35"], ["Рейс 2", "15:55"]] }
-    ],
-    note: ""
-  },
-  {
-    id: "b6",
-    route: "Вільногірськ ⇄ с. Водяне",
-    directions: [
-      { title: "З Вільногірська", rows: [["Рейс 1", "05:40"], ["Рейс 2", "10:00"], ["Рейс 3", "17:30"]] },
-      { title: "З с. Водяне", rows: [["Рейс 1", "06:30"], ["Рейс 2", "10:50"], ["Рейс 3", "18:20"]] }
-    ],
-    note: ""
-  }
-];
-
-app.get("/", (req, res) => {
-  res.send("🚌 Сервер автобусів працює!");
+// CORS
+app.use((req, res, next) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  next();
 });
 
-app.get("/api/buses", (req, res) => {
+const PORT = process.env.PORT || 3000;
+
+// Улучшенная функция проверки, которая учитывает конкретные даты (specificDates)
+function runsToday(train, todayStr) {
+  if (train.exceptions && train.exceptions.includes(todayStr)) return false;
+
+  if (train.specificDates && train.specificDates.includes(todayStr)) return true;
+
+  if (train.schedule) {
+    for (let period of train.schedule) {
+      if (todayStr >= period.from && todayStr <= period.to) {
+        const day = parseInt(todayStr.slice(-2));
+
+        if (
+          (period.parity === "even" && day % 2 === 0) ||
+          (period.parity === "odd" && day % 2 !== 0) ||
+          (period.parity === "everyday")
+        ) {
+          return true;
+        } else {
+          return false;
+        }
+      }
+    }
+  }
+  return false;
+}
+
+// Функция для загрузки данных из YAML файла
+function loadSchedule() {
+  try {
+    const fileContents = fs.readFileSync('./schedule.yaml', 'utf8');
+    return yaml.load(fileContents);
+  } catch (e) {
+    console.error("Ошибка чтения файла schedule.yaml:", e);
+    return { trains: [] };
+  }
+}
+
+// Главная
+app.get("/", (req, res) => {
+  res.send("🚀 Сервер з розкладом працює (дані завантажуються з YAML)!");
+});
+
+// API
+app.get("/schedule", (req, res) => {
+  const now = new Date();
+  // Для тестирования можно задать конкретную дату, например: const todayStr = "2026-04-01";
+  const todayStr = now.toISOString().slice(0, 10);
+  const currentMinutes = now.getHours() * 60 + now.getMinutes();
+
+  // Загружаем поезда из файла при каждом запросе
+  const data = loadSchedule();
+  const trains = data.trains || [];
+
+  const result = trains.map(train => {
+    const [h, m] = train.time.split(":");
+    const trainMinutes = parseInt(h) * 60 + parseInt(m);
+    const diff = trainMinutes - currentMinutes;
+
+    const isRunning = runsToday(train, todayStr);
+
+    return {
+      number: train.number,
+      route: train.route,
+      time: train.time,
+      runsToday: isRunning,
+      minutesLeft: diff,
+      status: !isRunning
+        ? "not_running"
+        : diff < 0
+        ? "gone"
+        : diff < 60
+        ? "soon"
+        : "later",
+      stops: train.stops || [],
+      periodicityText: train.periodicityText || "",
+      changes: train.changes || []
+    };
+  });
+
   res.json({
-    station: stationName,
-    buses: busesData
+    station: "Вільногірськ",
+    date: todayStr,
+    trains: result
   });
 });
 
-const PORT = process.env.PORT || 8080;
 app.listen(PORT, () => {
-  console.log(`Сервер автобусів запущено на порту ${PORT}`);
+  console.log("Server running on port " + PORT);
 });
