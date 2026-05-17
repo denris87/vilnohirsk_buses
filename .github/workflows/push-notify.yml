@@ -1,0 +1,93 @@
+name: Send push notification on buses.yaml change
+
+on:
+  push:
+    branches: [main]
+    paths: ['buses.yaml']
+
+jobs:
+  send-push:
+    runs-on: ubuntu-latest
+    if: contains(github.event.head_commit.message, '[push]')
+    
+    steps:
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      
+      - name: Install requests
+        run: pip install requests
+      
+      - name: Send push notification
+        env:
+          APPS_SCRIPT_URL: ${{ secrets.APPS_SCRIPT_URL }}
+          PUSH_SECRET: ${{ secrets.PUSH_SECRET }}
+          COMMIT_MSG: ${{ github.event.head_commit.message }}
+        run: |
+          cat > send_push.py << 'PYEOF'
+          import requests
+          import os
+          import sys
+          import re
+          
+          # Беремо текст з коміта (видаляємо тег [push])
+          commit_msg = os.environ.get('COMMIT_MSG', '')
+          custom_text = re.sub(r'\[push\]', '', commit_msg).strip()
+          
+          # За замовчуванням — загальний текст
+          title = "🚌 Автобуси"
+          body = "Подивись новинки в розділі!"
+          
+          # Якщо в коміті є текст після [push] у форматі "Заголовок | Тіло" — використовуємо його
+          if custom_text:
+              if '|' in custom_text:
+                  parts = custom_text.split('|', 1)
+                  title = parts[0].strip()[:50]
+                  body = parts[1].strip()[:150]
+              elif len(custom_text) > 5:
+                  body = custom_text[:150]
+          
+          print(f"📋 Заголовок: {title}")
+          print(f"📋 Текст: {body}")
+          
+          payload = {
+              "formType": "github_push",
+              "secret": os.environ['PUSH_SECRET'],
+              "category": "buses",
+              "title": title,
+              "body": body,
+              "url": "https://vilnohirsk.online"
+          }
+          
+          print("🚀 Sending push to Apps Script...")
+          session = requests.Session()
+          response = session.post(
+              os.environ['APPS_SCRIPT_URL'],
+              json=payload,
+              headers={'Content-Type': 'application/json'},
+              allow_redirects=True,
+              timeout=30
+          )
+          
+          print(f"📨 HTTP Code: {response.status_code}")
+          print(f"📨 Response body: {response.text[:500]}")
+          
+          if response.status_code == 200:
+              try:
+                  result = response.json()
+                  if result.get('status') == 'success' or result.get('sent') == True:
+                      print("✅ Push sent successfully!")
+                      sys.exit(0)
+                  else:
+                      print(f"⚠️ Unexpected response: {result}")
+                      sys.exit(1)
+              except ValueError:
+                  print("❌ Response is not JSON")
+                  sys.exit(1)
+          else:
+              print(f"❌ HTTP {response.status_code} - request failed")
+              sys.exit(1)
+          PYEOF
+          
+          python send_push.py
