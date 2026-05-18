@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Автобуси Вільногірська</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #f0f4f8;
+      color: #1a202c;
+      min-height: 100vh;
+    }
+
+    header {
+      background: linear-gradient(135deg, #1a56db 0%, #0e9f6e 100%);
+      color: #fff;
+      padding: 24px 16px 20px;
+      text-align: center;
+    }
+
+    header h1 {
+      font-size: 1.5rem;
+      font-weight: 700;
+      letter-spacing: 0.3px;
+    }
+
+    header p {
+      font-size: 0.85rem;
+      opacity: 0.85;
+      margin-top: 4px;
+    }
+
+    main {
+      max-width: 680px;
+      margin: 24px auto;
+      padding: 0 12px 40px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    /* ── Bus card ── */
+    .bus-card {
+      background: #fff;
+      border-radius: 16px;
+      box-shadow: 0 2px 8px rgba(0,0,0,.08);
+      overflow: hidden;
+    }
+
+    .bus-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 16px;
+      cursor: pointer;
+      user-select: none;
+      border-bottom: 1px solid #e8edf3;
+      transition: background .15s;
+    }
+
+    .bus-header:hover { background: #f7fafc; }
+
+    .bus-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: 12px;
+      background: linear-gradient(135deg, #1a56db, #0e9f6e);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.2rem;
+      flex-shrink: 0;
+    }
+
+    .bus-title {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .bus-title h2 {
+      font-size: 0.95rem;
+      font-weight: 700;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .bus-title .note {
+      font-size: 0.75rem;
+      color: #718096;
+      margin-top: 2px;
+    }
+
+    .chevron {
+      font-size: 1rem;
+      color: #a0aec0;
+      transition: transform .3s;
+      flex-shrink: 0;
+    }
+
+    .bus-card.open .chevron { transform: rotate(180deg); }
+
+    /* ── Directions panel ── */
+    .bus-body {
+      display: grid;
+      grid-template-rows: 0fr;
+      transition: grid-template-rows .35s ease;
+    }
+
+    .bus-card.open .bus-body { grid-template-rows: 1fr; }
+
+    .bus-body-inner { overflow: hidden; }
+
+    .directions {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+    }
+
+    .direction {
+      border-top: 1px solid #edf2f7;
+    }
+
+    .direction-title {
+      font-size: 0.78rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      color: #4a5568;
+      padding: 10px 16px 6px;
+      background: #f7fafc;
+    }
+
+    /* ── Rows ── */
+    .schedule-row {
+      display: flex;
+      align-items: center;
+      padding: 0 16px;
+      min-height: 44px;
+      border-bottom: 1px solid #f0f4f8;
+      gap: 8px;
+    }
+
+    .schedule-row:last-child { border-bottom: none; }
+
+    .row-label {
+      flex: 1;
+      font-size: 0.9rem;
+    }
+
+    .row-time {
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: #1a56db;
+      min-width: 50px;
+      text-align: right;
+    }
+
+    /* ── Stops accordion ── */
+    .stops-toggle {
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 4px 8px;
+      border-radius: 8px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: #0e9f6e;
+      background: #e6f9f3;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      transition: background .15s;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+
+    .stops-toggle:hover { background: #c6f2e3; }
+
+    .stops-chevron {
+      font-size: 0.7rem;
+      transition: transform .3s;
+      display: inline-block;
+    }
+
+    .stops-toggle.open .stops-chevron { transform: rotate(180deg); }
+
+    .stops-panel {
+      display: grid;
+      grid-template-rows: 0fr;
+      transition: grid-template-rows .35s ease;
+    }
+
+    .stops-panel.open { grid-template-rows: 1fr; }
+
+    .stops-panel-inner {
+      overflow: hidden;
+    }
+
+    .stops-list {
+      background: #f7fafc;
+      border-top: 1px solid #e2e8f0;
+      border-bottom: 1px solid #e2e8f0;
+      padding: 4px 0;
+    }
+
+    .stop-item {
+      display: flex;
+      align-items: center;
+      padding: 8px 16px 8px 32px;
+      gap: 12px;
+      position: relative;
+    }
+
+    .stop-item::before {
+      content: "";
+      position: absolute;
+      left: 20px;
+      top: 0;
+      bottom: 0;
+      width: 2px;
+      background: #cbd5e0;
+    }
+
+    .stop-item:first-child::before { top: 50%; }
+    .stop-item:last-child::before  { bottom: 50%; }
+
+    .stop-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #1a56db;
+      flex-shrink: 0;
+      position: relative;
+      z-index: 1;
+      margin-left: -3px;
+    }
+
+    .stop-item:first-child .stop-dot,
+    .stop-item:last-child .stop-dot {
+      width: 10px;
+      height: 10px;
+      background: #0e9f6e;
+      margin-left: -4px;
+    }
+
+    .stop-name {
+      flex: 1;
+      font-size: 0.88rem;
+      color: #2d3748;
+    }
+
+    .stop-time {
+      font-size: 0.88rem;
+      font-weight: 700;
+      color: #1a56db;
+    }
+
+    /* ── Loading / error ── */
+    #loading {
+      text-align: center;
+      padding: 60px 16px;
+      color: #718096;
+      font-size: 1rem;
+    }
+
+    footer {
+      text-align: center;
+      font-size: 0.75rem;
+      color: #a0aec0;
+      padding: 12px;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>🚌 Автобуси Вільногірська</h1>
+  <p>Розклад руху</p>
+</header>
+
+<main id="app">
+  <div id="loading">Завантаження розкладу…</div>
+</main>
+
+<footer>Оновлюється вручну • vilnohirsk</footer>
+
+<script>
+async function loadBuses() {
+  const app = document.getElementById("app");
+  try {
+    const res  = await fetch("/api/buses");
+    const data = await res.json();
+    app.innerHTML = "";
+    data.buses.forEach(bus => app.appendChild(buildCard(bus)));
+  } catch (e) {
+    app.innerHTML = `<div id="loading">Помилка завантаження 😔</div>`;
+  }
+}
+
+function buildCard(bus) {
+  const card = document.createElement("div");
+  card.className = "bus-card";
+
+  // header
+  const hdr = document.createElement("div");
+  hdr.className = "bus-header";
+  hdr.innerHTML = `
+    <div class="bus-icon">🚌</div>
+    <div class="bus-title">
+      <h2>${bus.route}</h2>
+      ${bus.note ? `<div class="note">${bus.note}</div>` : ""}
+    </div>
+    <span class="chevron">▼</span>`;
+  hdr.addEventListener("click", () => card.classList.toggle("open"));
+
+  // body
+  const body      = document.createElement("div");
+  body.className  = "bus-body";
+  const inner     = document.createElement("div");
+  inner.className = "bus-body-inner";
+  const dirs      = document.createElement("div");
+  dirs.className  = "directions";
+
+  (bus.directions || []).forEach(dir => {
+    const dirEl = document.createElement("div");
+    dirEl.className = "direction";
+    dirEl.innerHTML = `<div class="direction-title">${dir.title}</div>`;
+
+    (dir.rows || []).forEach(row => {
+      // row can be array ["label","time"] or object {label,time,stops}
+      const label = Array.isArray(row) ? row[0] : row.label;
+      const time  = Array.isArray(row) ? row[1] : row.time;
+      const stops = Array.isArray(row) ? null    : (row.stops || null);
+
+      const rowEl = document.createElement("div");
+      rowEl.className = "schedule-row";
+
+      const labelEl = document.createElement("span");
+      labelEl.className = "row-label";
+      labelEl.textContent = label;
+
+      const timeEl = document.createElement("span");
+      timeEl.className = "row-time";
+      timeEl.textContent = time;
+
+      rowEl.appendChild(labelEl);
+      rowEl.appendChild(timeEl);
+
+      // stops accordion
+      if (stops && stops.length) {
+        const btn = document.createElement("button");
+        btn.className = "stops-toggle";
+        btn.innerHTML = `Зупинки <span class="stops-chevron">▼</span>`;
+
+        const panel = document.createElement("div");
+        panel.className = "stops-panel";
+        const pInner = document.createElement("div");
+        pInner.className = "stops-panel-inner";
+
+        const list = document.createElement("div");
+        list.className = "stops-list";
+
+        stops.forEach(([name, t]) => {
+          const item = document.createElement("div");
+          item.className = "stop-item";
+          item.innerHTML = `
+            <span class="stop-dot"></span>
+            <span class="stop-name">${name}</span>
+            <span class="stop-time">${t}</span>`;
+          list.appendChild(item);
+        });
+
+        pInner.appendChild(list);
+        panel.appendChild(pInner);
+
+        btn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          const isOpen = panel.classList.toggle("open");
+          btn.classList.toggle("open", isOpen);
+        });
+
+        rowEl.appendChild(btn);
+        dirEl.appendChild(rowEl);
+        dirEl.appendChild(panel);
+      } else {
+        dirEl.appendChild(rowEl);
+      }
+    });
+
+    dirs.appendChild(dirEl);
+  });
+
+  inner.appendChild(dirs);
+  body.appendChild(inner);
+  card.appendChild(hdr);
+  card.appendChild(body);
+  return card;
+}
+
+loadBuses();
+</script>
+</body>
+</html>
