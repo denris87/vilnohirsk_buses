@@ -312,7 +312,7 @@ function buildCard(bus) {
     <div class="bus-icon">🚌</div>
     <div class="bus-title">
       <h2>${bus.route}</h2>
-      ${bus.note ? `<div class="note">${bus.note}</div>` : ""}
+      ${bus.note ? `<div class="note">${bus.note.replace(/\n/g, "<br>")}</div>` : ""}
     </div>
     <span class="chevron">▼</span>`;
   hdr.addEventListener("click", () => card.classList.toggle("open"));
